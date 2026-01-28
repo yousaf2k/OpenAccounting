@@ -134,6 +134,40 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Customer Service
+  customer-service:
+    build:
+      context: .
+      dockerfile: src/Services/Customer/Customer.API/Dockerfile
+    container_name: accounting-customer
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=CustomerDb;User Id=sa;Password=YourStrong@Passw0rd;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;
+      ConnectionStrings__RabbitMQ: amqp://guest:guest@rabbitmq:5672/
+      Auth__Authority: http://identity-service
+      Seq__Url: http://seq:5341
+    ports:
+      - "5003:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
   # API Gateway
   apigateway:
     build:
