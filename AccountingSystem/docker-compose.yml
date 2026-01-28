@@ -100,6 +100,40 @@ services:
       retries: 5
       start_period: 60s
 
+  # Identity Service (Comment 5)
+  identity-service:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.API/Dockerfile
+    container_name: accounting-identity
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=IdentityService;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      JWT__SigningKey: YourVerySecureSigningKeyThatIsLongerThanThirtyTwoCharactersForHS256Algorithm
+      JWT__Issuer: IdentityService
+      JWT__Audience: AccountingSystem
+      Serilog__WriteTo__0__Args__serverUrl: http://seq:5341
+      OpenTelemetry__Jaeger__Endpoint: http://jaeger:14268/api/traces
+    ports:
+      - "5001:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
   # API Gateway
   apigateway:
     build:
