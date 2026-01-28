@@ -100,6 +100,44 @@ services:
       retries: 5
       start_period: 60s
 
+  # API Gateway
+  apigateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    container_name: accounting-apigateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=AccountingSystem;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      HealthChecks__SqlServer__ConnectionString: Server=sqlserver;Database=AccountingSystem;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      HealthChecks__RabbitMQ__ConnectionString: amqp://guest:guest@rabbitmq:5672/
+      HealthChecks__Redis__ConnectionString: redis:6379
+      Serilog__WriteTo__0__Args__serverUrl: http://seq:5341
+      OpenTelemetry__Jaeger__Endpoint: http://jaeger:14268/api/traces
+    ports:
+      - "5000:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
 networks:
   accounting-network:
     driver: bridge

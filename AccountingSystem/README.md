@@ -4,8 +4,18 @@ A comprehensive microservices-based accounting system built with .NET 10, follow
 
 ## Architecture Overview
 
-This solution implements a modular accounting system with the following microservices:
+This solution implements a modular accounting system with the following components:
 
+### API Gateway
+- **YARP-based Reverse Proxy**: Single entry point for all client requests
+- **Rate Limiting**: Protection against abuse with configurable policies
+- **Authentication & Authorization**: JWT validation and role-based access control
+- **Request Aggregation**: Backend-for-Frontend (BFF) pattern implementation
+- **Health Monitoring**: Comprehensive health checks for all services
+- **Service Discovery**: Dynamic service resolution
+- **Observability**: Distributed tracing and centralized logging
+
+### Microservices
 - **Identity Service**: Authentication and authorization
 - **Customer Service**: Customer management
 - **Product Service**: Product catalog management
@@ -76,8 +86,10 @@ This will start the following services:
 dotnet build
 ```
 
-### 4. Access Infrastructure UIs
+### 4. Access Services and Infrastructure UIs
 
+- **API Gateway**: http://localhost:5000 (main entry point)
+- **API Gateway Health**: http://localhost:5000/health
 - **RabbitMQ Management**: http://localhost:15672 (guest/guest)
 - **Seq Logging**: http://localhost:5341
 - **Jaeger Tracing**: http://localhost:16686
@@ -87,12 +99,12 @@ dotnet build
 ```
 AccountingSystem/
 ├── src/
+│   ├── ApiGateway/           # YARP-based API Gateway
 │   ├── BuildingBlocks/
 │   │   ├── Common/           # Shared utilities and base classes
 │   │   ├── EventBus/         # Message broker abstractions
 │   │   └── Infrastructure/   # Data access patterns
-│   ├── Services/             # Microservices (future)
-│   └── ApiGateway/           # API Gateway (future)
+│   └── Services/             # Microservices (future)
 ├── tests/                    # Test projects
 ├── docker/                   # Docker-related files
 ├── docs/                     # Documentation
