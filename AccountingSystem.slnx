@@ -1,5 +1,7 @@
 <Solution>
-  <Folder Name="/src/" />
+  <Folder Name="/src/">
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/ApiGateway/">
     <Project Path="src/ApiGateway/ApiGateway.csproj" />
   </Folder>
@@ -12,5 +14,34 @@
   </Folder>
   <Folder Name="/src/BuildingBlocks/Infrastructure/">
     <Project Path="src/BuildingBlocks/Infrastructure/BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Customer/" />
+  <Folder Name="/src/Services/Customer/Customer.API/">
+    <Project Path="src/Services/Customer/Customer.API/Customer.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Customer/Customer.Application/">
+    <Project Path="src/Services/Customer/Customer.Application/Customer.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Customer/Customer.Domain/">
+    <Project Path="src/Services/Customer/Customer.Domain/Customer.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Customer/Customer.Infrastructure/">
+    <Project Path="src/Services/Customer/Customer.Infrastructure/Customer.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/">
+    <File Path="src/Services/Identity/README.md" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/Identity.API/">
+    <Project Path="src/Services/Identity/Identity.API/Identity.API.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/Identity.Application/">
+    <Project Path="src/Services/Identity/Identity.Application/Identity.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/Identity.Domain/">
+    <Project Path="src/Services/Identity/Identity.Domain/Identity.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/Identity.Infrastructure/">
+    <Project Path="src/Services/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" />
   </Folder>
 </Solution>
