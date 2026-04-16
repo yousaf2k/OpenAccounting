@@ -1,0 +1,217 @@
+version: '3.8'
+
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: accounting-sqlserver
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: YourStrong@Passw0rd
+      MSSQL_PID: Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: accounting-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: accounting-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Seq Centralized Logging
+  seq:
+    image: datalust/seq:latest
+    container_name: accounting-seq
+    environment:
+      ACCEPT_EULA: Y
+    ports:
+      - "5341:80"
+      - "5342:5341"
+    volumes:
+      - seq-data:/data
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Jaeger Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: accounting-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+      - "14268:14268"
+    networks:
+      - accounting-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:16686"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Identity Service (Comment 5)
+  identity-service:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.API/Dockerfile
+    container_name: accounting-identity
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=IdentityService;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      JWT__SigningKey: YourVerySecureSigningKeyThatIsLongerThanThirtyTwoCharactersForHS256Algorithm
+      JWT__Issuer: IdentityService
+      JWT__Audience: AccountingSystem
+      Serilog__WriteTo__0__Args__serverUrl: http://seq:5341
+      OpenTelemetry__Jaeger__Endpoint: http://jaeger:14268/api/traces
+    ports:
+      - "5001:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Customer Service
+  customer-service:
+    build:
+      context: .
+      dockerfile: src/Services/Customer/Customer.API/Dockerfile
+    container_name: accounting-customer
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=CustomerDb;User Id=sa;Password=YourStrong@Passw0rd;Encrypt=false;TrustServerCertificate=true;Connection Timeout=30;
+      ConnectionStrings__RabbitMQ: amqp://guest:guest@rabbitmq:5672/
+      Auth__Authority: http://identity-service
+      Seq__Url: http://seq:5341
+    ports:
+      - "5003:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # API Gateway
+  apigateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/Dockerfile
+    container_name: accounting-apigateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=AccountingSystem;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      HealthChecks__SqlServer__ConnectionString: Server=sqlserver;Database=AccountingSystem;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True
+      HealthChecks__RabbitMQ__ConnectionString: amqp://guest:guest@rabbitmq:5672/
+      HealthChecks__Redis__ConnectionString: redis:6379
+      Serilog__WriteTo__0__Args__serverUrl: http://seq:5341
+      OpenTelemetry__Jaeger__Endpoint: http://jaeger:14268/api/traces
+    ports:
+      - "5000:80"
+    networks:
+      - accounting-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seq:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+networks:
+  accounting-network:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+  rabbitmq-data:
+  redis-data:
+  seq-data:
